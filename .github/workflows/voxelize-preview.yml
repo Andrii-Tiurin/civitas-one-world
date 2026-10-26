@@ -20,11 +20,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build Voxelize client
+      - name: Install dependencies and build Vite preview
         working-directory: voxelize
         run: |
           pnpm install --frozen-lockfile
-          pnpm --filter client build
+          cd examples/client
+          pnpm exec vite build --base=/civitas-one-world/voxel/
       - name: Publish under /voxel
         run: |
           mkdir -p civitas/voxel
