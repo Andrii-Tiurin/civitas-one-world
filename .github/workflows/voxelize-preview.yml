@@ -1,0 +1,37 @@
+name: Build Voxelize client preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: civitas
+      - uses: actions/checkout@v4
+        with:
+          repository: voxelize/voxelize
+          path: voxelize
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Voxelize client
+        working-directory: voxelize
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter client build
+      - name: Publish under /voxel
+        run: |
+          mkdir -p civitas/voxel
+          cp -r voxelize/examples/client/dist/. civitas/voxel/
+          cd civitas
+          git config user.name civitas-bot
+          git config user.email actions@users.noreply.github.com
+          git add voxel
+          git diff --cached --quiet || git commit -m 'Publish Voxelize browser preview'
+          git push
