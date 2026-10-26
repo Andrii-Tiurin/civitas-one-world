@@ -24,23 +24,41 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@wasm-pack
-      - name: Build WebAssembly and workspace dependencies
-        working-directory: voxelize
+      - name: Build CIVITAS on Voxelize
         run: |
+          cd voxelize
           pnpm install --frozen-lockfile
           pnpm build:wasm:release
           pnpm build:deps
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('examples/client/src/main.ts')
-          s = p.read_text()
-          old = 'const BACKEND_SERVER_INSTANCE = new URL(window.location.href);'
-          assert old in s, 'Upstream server URL changed'
-          p.write_text(s.replace(old, 'const BACKEND_SERVER_INSTANCE = new URL("https://civitas-one-world.onrender.com/");'))
+          p=Path('examples/client/src/main.ts')
+          s=p.read_text()
+          s=s.replace('const BACKEND_SERVER_INSTANCE = new URL(window.location.href);','const BACKEND_SERVER_INSTANCE = new URL("https://civitas-one-world.onrender.com/");')
+          old='if (updates.length) controls.world.updateVoxels(updates);'
+          assert s.count(old)==2, 'Voxelize interaction code changed'
+          mining='''if (updates.length) {
+            const mined = updates.filter(u => { const b = controls.world.getBlockAt(u.vx,u.vy,u.vz); return b && b.id !== 0; });
+            const woods = mined.filter(u => /wood|log|tree|plank/i.test(controls.world.getBlockAt(u.vx,u.vy,u.vz)?.name || "")).length;
+            if(mined.length) {
+              window.dispatchEvent(new CustomEvent("civitas:mine",{detail:{kind:"wood",count:woods}}));
+              if(mined.length>woods)window.dispatchEvent(new CustomEvent("civitas:mine",{detail:{kind:"stone",count:mined.length-woods}}));
+            }
+            controls.world.updateVoxels(updates);
+          }'''
+          building='''if (updates.length) {
+            controls.world.updateVoxels(updates);
+            window.dispatchEvent(new CustomEvent("civitas:build",{detail:{count:updates.length}}));
+          }'''
+          s=s.replace(old,mining,1).replace(old,building,1)
+          s+='\n'+Path('../civitas/civitas/gameplay.ts').read_text()
+          p.write_text(s)
+          html=Path('examples/client/index.html')
+          html.write_text(html.read_text().replace('Voxelize Demo','CIVITAS — ONE WORLD'))
           PY
           cd examples/client
           pnpm exec vite build --base=/civitas-one-world/voxel/
-      - name: Publish under /voxel
+      - name: Publish CIVITAS game
         run: |
           mkdir -p civitas/voxel
           cp -r voxelize/examples/client/dist/. civitas/voxel/
@@ -48,5 +66,5 @@ jobs:
           git config user.name civitas-bot
           git config user.email actions@users.noreply.github.com
           git add voxel
-          git diff --cached --quiet || git commit -m 'Publish Voxelize browser preview'
+          git diff --cached --quiet || git commit -m 'Publish CIVITAS civilization gameplay'
           git push
