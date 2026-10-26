@@ -20,10 +20,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install and build upstream workspace packages
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@wasm-pack
+      - name: Build WASM and workspace dependencies
         working-directory: voxelize
         run: |
           pnpm install --frozen-lockfile
+          pnpm build:wasm:release
           pnpm build:deps
           cd examples/client
           pnpm exec vite build --base=/civitas-one-world/voxel/
