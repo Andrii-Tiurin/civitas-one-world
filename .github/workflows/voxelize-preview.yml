@@ -24,12 +24,20 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@wasm-pack
-      - name: Build WASM and workspace dependencies
+      - name: Build WebAssembly and workspace dependencies
         working-directory: voxelize
         run: |
           pnpm install --frozen-lockfile
           pnpm build:wasm:release
           pnpm build:deps
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('examples/client/src/main.ts')
+          s = p.read_text()
+          old = 'const BACKEND_SERVER_INSTANCE = new URL(window.location.href);'
+          assert old in s, 'Upstream server URL changed'
+          p.write_text(s.replace(old, 'const BACKEND_SERVER_INSTANCE = new URL("https://civitas-one-world.onrender.com/");'))
+          PY
           cd examples/client
           pnpm exec vite build --base=/civitas-one-world/voxel/
       - name: Publish under /voxel
